@@ -102,7 +102,7 @@ class RestGarageDoor(GarageDoorDevice):
     def _trigger(self, open):
         """Trigger the door."""
         action = self._default_states['open'] if open else self._default_states['closed']
-        response = requests.post(self._resource, data=action, timeout=2)
+        response = requests.post(self._resource, data=action, timeout=2, headers={'Content-type': 'text/plain'})
 
         if response.status_code == 200:
             self._state = action

@@ -15,7 +15,6 @@ from homeassistant.const import (
     CONF_NAME, CONF_VALUE_TEMPLATE, STATE_UNKNOWN, CONF_UNIT_OF_MEASUREMENT)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers import template
 from homeassistant.util import Throttle
 
 REQUIREMENTS = ['dweepy==0.2.0']
@@ -45,16 +44,14 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     device = config.get(CONF_DEVICE)
     value_template = config.get(CONF_VALUE_TEMPLATE)
     unit = config.get(CONF_UNIT_OF_MEASUREMENT)
-
+    value_template.hass = hass
     try:
         content = json.dumps(dweepy.get_latest_dweet_for(device)[0]['content'])
     except dweepy.DweepyError:
         _LOGGER.error("Device/thing '%s' could not be found", device)
         return False
 
-    if template.render_with_possible_json_value(hass,
-                                                value_template,
-                                                content) is '':
+    if value_template.render_with_possible_json_value(content) == '':
         _LOGGER.error("'%s' was not found", value_template)
         return False
 
@@ -63,7 +60,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([DweetSensor(hass, dweet, name, value_template, unit)])
 
 
-# pylint: disable=too-many-arguments
 class DweetSensor(Entity):
     """Representation of a Dweet sensor."""
 
@@ -94,8 +90,8 @@ class DweetSensor(Entity):
             return STATE_UNKNOWN
         else:
             values = json.dumps(self.dweet.data[0]['content'])
-            value = template.render_with_possible_json_value(
-                self.hass, self._value_template, values)
+            value = self._value_template.render_with_possible_json_value(
+                values)
             return value
 
     def update(self):
@@ -103,7 +99,6 @@ class DweetSensor(Entity):
         self.dweet.update()
 
 
-# pylint: disable=too-few-public-methods
 class DweetData(object):
     """The class for handling the data retrieval."""
 

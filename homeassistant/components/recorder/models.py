@@ -20,7 +20,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Events(Base):  # type: ignore
-    # pylint: disable=too-few-public-methods
     """Event history data."""
 
     __tablename__ = 'events'
@@ -55,7 +54,6 @@ class Events(Base):  # type: ignore
 
 
 class States(Base):   # type: ignore
-    # pylint: disable=too-few-public-methods
     """State change history."""
 
     __tablename__ = 'states'
@@ -92,7 +90,8 @@ class States(Base):   # type: ignore
         else:
             dbstate.domain = state.domain
             dbstate.state = state.state
-            dbstate.attributes = json.dumps(dict(state.attributes))
+            dbstate.attributes = json.dumps(dict(state.attributes),
+                                            cls=JSONEncoder)
             dbstate.last_changed = state.last_changed
             dbstate.last_updated = state.last_updated
 
@@ -114,7 +113,6 @@ class States(Base):   # type: ignore
 
 
 class RecorderRuns(Base):   # type: ignore
-    # pylint: disable=too-few-public-methods
     """Representation of recorder run."""
 
     __tablename__ = 'recorder_runs'

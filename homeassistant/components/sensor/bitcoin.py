@@ -10,12 +10,23 @@ from datetime import timedelta
 import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import CONF_DISPLAY_OPTIONS
+from homeassistant.const import (CONF_DISPLAY_OPTIONS, ATTR_ATTRIBUTION)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 
 REQUIREMENTS = ['blockchain==1.3.3']
+
+_LOGGER = logging.getLogger(__name__)
+
+CONF_ATTRIBUTION = "Data provided by blockchain.info"
+CONF_CURRENCY = 'currency'
+
+DEFAULT_CURRENCY = 'USD'
+
+ICON = 'mdi:currency-btc'
+
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=5)
 
 OPTION_TYPES = {
     'exchangerate': ['Exchange rate (1 BTC)', None],
@@ -41,30 +52,23 @@ OPTION_TYPES = {
     'market_price_usd': ['Market price', 'USD']
 }
 
-ICON = 'mdi:currency-btc'
-CONF_CURRENCY = 'currency'
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_DISPLAY_OPTIONS, default=[]):
-        [vol.In(OPTION_TYPES)],
-    vol.Optional(CONF_CURRENCY, default='USD'): cv.string,
+        vol.All(cv.ensure_list, [vol.In(OPTION_TYPES)]),
+    vol.Optional(CONF_CURRENCY, default=DEFAULT_CURRENCY): cv.string,
 })
-
-_LOGGER = logging.getLogger(__name__)
-
-# Return cached results if last scan was less then this time ago.
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=5)
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup the Bitcoin sensors."""
+    """Set up the Bitcoin sensors."""
     from blockchain import exchangerates
 
     currency = config.get(CONF_CURRENCY)
 
     if currency not in exchangerates.get_ticker():
-        _LOGGER.error('Currency "%s" is not available. Using "USD"', currency)
-        currency = 'USD'
+        _LOGGER.warning('Currency "%s" is not available. Using "USD"',
+                        currency)
+        currency = DEFAULT_CURRENCY
 
     data = BitcoinData()
     dev = []
@@ -74,7 +78,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices(dev)
 
 
-# pylint: disable=too-few-public-methods
 class BitcoinSensor(Entity):
     """Representation of a Bitcoin sensor."""
 
@@ -108,7 +111,13 @@ class BitcoinSensor(Entity):
         """Return the icon to use in the frontend, if any."""
         return ICON
 
-    # pylint: disable=too-many-branches
+    @property
+    def device_state_attributes(self):
+        """Return the state attributes of the sensor."""
+        return {
+            ATTR_ATTRIBUTION: CONF_ATTRIBUTION,
+        }
+
     def update(self):
         """Get the latest data and updates the states."""
         self.data.update()

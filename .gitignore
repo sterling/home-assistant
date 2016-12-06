@@ -62,6 +62,7 @@ pip-log.txt
 .coverage
 .tox
 nosetests.xml
+htmlcov/
 
 # Translations
 *.mo
@@ -97,3 +98,9 @@ virtualization/vagrant/config
 
 # Visual Studio Code
 .vscode
+
+# Built docs
+docs/build
+
+# Windows Explorer
+desktop.ini

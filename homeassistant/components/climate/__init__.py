@@ -12,7 +12,6 @@ import voluptuous as vol
 from homeassistant.helpers.entity_component import EntityComponent
 
 from homeassistant.config import load_yaml_config_file
-import homeassistant.util as util
 from homeassistant.util.temperature import convert as convert_temperature
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.config_validation import PLATFORM_SCHEMA  # noqa
@@ -44,6 +43,8 @@ STATE_FAN_ONLY = "fan_only"
 ATTR_CURRENT_TEMPERATURE = "current_temperature"
 ATTR_MAX_TEMP = "max_temp"
 ATTR_MIN_TEMP = "min_temp"
+ATTR_TARGET_TEMP_HIGH = "target_temp_high"
+ATTR_TARGET_TEMP_LOW = "target_temp_low"
 ATTR_AWAY_MODE = "away_mode"
 ATTR_AUX_HEAT = "aux_heat"
 ATTR_FAN_MODE = "fan_mode"
@@ -57,6 +58,17 @@ ATTR_OPERATION_LIST = "operation_list"
 ATTR_SWING_MODE = "swing_mode"
 ATTR_SWING_LIST = "swing_list"
 
+# The degree of precision for each platform
+PRECISION_WHOLE = 1
+PRECISION_HALVES = 0.5
+PRECISION_TENTHS = 0.1
+
+CONVERTIBLE_ATTRIBUTE = [
+    ATTR_TEMPERATURE,
+    ATTR_TARGET_TEMP_LOW,
+    ATTR_TARGET_TEMP_HIGH,
+]
+
 _LOGGER = logging.getLogger(__name__)
 
 SET_AWAY_MODE_SCHEMA = vol.Schema({
@@ -68,8 +80,11 @@ SET_AUX_HEAT_SCHEMA = vol.Schema({
     vol.Required(ATTR_AUX_HEAT): cv.boolean,
 })
 SET_TEMPERATURE_SCHEMA = vol.Schema({
+    vol.Exclusive(ATTR_TEMPERATURE, 'temperature'): vol.Coerce(float),
+    vol.Inclusive(ATTR_TARGET_TEMP_HIGH, 'temperature'): vol.Coerce(float),
+    vol.Inclusive(ATTR_TARGET_TEMP_LOW, 'temperature'): vol.Coerce(float),
     vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
-    vol.Required(ATTR_TEMPERATURE): vol.Coerce(float),
+    vol.Optional(ATTR_OPERATION_MODE): cv.string,
 })
 SET_FAN_MODE_SCHEMA = vol.Schema({
     vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
@@ -113,14 +128,21 @@ def set_aux_heat(hass, aux_heat, entity_id=None):
     hass.services.call(DOMAIN, SERVICE_SET_AUX_HEAT, data)
 
 
-def set_temperature(hass, temperature, entity_id=None):
+def set_temperature(hass, temperature=None, entity_id=None,
+                    target_temp_high=None, target_temp_low=None,
+                    operation_mode=None):
     """Set new target temperature."""
-    data = {ATTR_TEMPERATURE: temperature}
-
-    if entity_id is not None:
-        data[ATTR_ENTITY_ID] = entity_id
-
-    hass.services.call(DOMAIN, SERVICE_SET_TEMPERATURE, data)
+    kwargs = {
+        key: value for key, value in [
+            (ATTR_TEMPERATURE, temperature),
+            (ATTR_TARGET_TEMP_HIGH, target_temp_high),
+            (ATTR_TARGET_TEMP_LOW, target_temp_low),
+            (ATTR_ENTITY_ID, entity_id),
+            (ATTR_OPERATION_MODE, operation_mode)
+        ] if value is not None
+    }
+    _LOGGER.debug("set_temperature start data=%s", kwargs)
+    hass.services.call(DOMAIN, SERVICE_SET_TEMPERATURE, kwargs)
 
 
 def set_humidity(hass, humidity, entity_id=None):
@@ -163,7 +185,6 @@ def set_swing_mode(hass, swing_mode, entity_id=None):
     hass.services.call(DOMAIN, SERVICE_SET_SWING_MODE, data)
 
 
-# pylint: disable=too-many-branches
 def setup(hass, config):
     """Setup climate devices."""
     component = EntityComponent(_LOGGER, DOMAIN, hass, SCAN_INTERVAL)
@@ -228,20 +249,19 @@ def setup(hass, config):
         """Set temperature on the target climate devices."""
         target_climate = component.extract_from_service(service)
 
-        temperature = util.convert(
-            service.data.get(ATTR_TEMPERATURE), float)
-
-        if temperature is None:
-            _LOGGER.error(
-                "Received call to %s without attribute %s",
-                SERVICE_SET_TEMPERATURE, ATTR_TEMPERATURE)
-            return
-
         for climate in target_climate:
-            climate.set_temperature(convert_temperature(
-                temperature, hass.config.units.temperature_unit,
-                climate.unit_of_measurement))
+            kwargs = {}
+            for value, temp in service.data.items():
+                if value in CONVERTIBLE_ATTRIBUTE:
+                    kwargs[value] = convert_temperature(
+                        temp,
+                        hass.config.units.temperature_unit,
+                        climate.temperature_unit
+                    )
+                else:
+                    kwargs[value] = temp
 
+            climate.set_temperature(**kwargs)
             if climate.should_poll:
                 climate.update_ha_state(True)
 
@@ -347,11 +367,22 @@ def setup(hass, config):
 class ClimateDevice(Entity):
     """Representation of a climate device."""
 
-    # pylint: disable=too-many-public-methods,no-self-use
+    # pylint: disable=no-self-use
     @property
     def state(self):
         """Return the current state."""
-        return self.target_temperature or STATE_UNKNOWN
+        if self.current_operation:
+            return self.current_operation
+        else:
+            return STATE_UNKNOWN
+
+    @property
+    def precision(self):
+        """Return the precision of the system."""
+        if self.unit_of_measurement == TEMP_CELSIUS:
+            return PRECISION_TENTHS
+        else:
+            return PRECISION_WHOLE
 
     @property
     def state_attributes(self):
@@ -364,6 +395,12 @@ class ClimateDevice(Entity):
             ATTR_TEMPERATURE:
             self._convert_for_display(self.target_temperature),
         }
+        target_temp_high = self.target_temperature_high
+        if target_temp_high is not None:
+            data[ATTR_TARGET_TEMP_HIGH] = self._convert_for_display(
+                self.target_temperature_high)
+            data[ATTR_TARGET_TEMP_LOW] = self._convert_for_display(
+                self.target_temperature_low)
 
         humidity = self.target_humidity
         if humidity is not None:
@@ -375,17 +412,20 @@ class ClimateDevice(Entity):
         fan_mode = self.current_fan_mode
         if fan_mode is not None:
             data[ATTR_FAN_MODE] = fan_mode
-            data[ATTR_FAN_LIST] = self.fan_list
+            if self.fan_list:
+                data[ATTR_FAN_LIST] = self.fan_list
 
         operation_mode = self.current_operation
         if operation_mode is not None:
             data[ATTR_OPERATION_MODE] = operation_mode
-            data[ATTR_OPERATION_LIST] = self.operation_list
+            if self.operation_list:
+                data[ATTR_OPERATION_LIST] = self.operation_list
 
         swing_mode = self.current_swing_mode
         if swing_mode is not None:
             data[ATTR_SWING_MODE] = swing_mode
-            data[ATTR_SWING_LIST] = self.swing_list
+            if self.swing_list:
+                data[ATTR_SWING_LIST] = self.swing_list
 
         is_away = self.is_away_mode_on
         if is_away is not None:
@@ -399,7 +439,12 @@ class ClimateDevice(Entity):
 
     @property
     def unit_of_measurement(self):
-        """Return the unit of measurement."""
+        """The unit of measurement to display."""
+        return self.hass.config.units.temperature_unit
+
+    @property
+    def temperature_unit(self):
+        """The unit of measurement used by the platform."""
         raise NotImplementedError
 
     @property
@@ -433,6 +478,16 @@ class ClimateDevice(Entity):
         return None
 
     @property
+    def target_temperature_high(self):
+        """Return the highbound target temperature we try to reach."""
+        return None
+
+    @property
+    def target_temperature_low(self):
+        """Return the lowbound target temperature we try to reach."""
+        return None
+
+    @property
     def is_away_mode_on(self):
         """Return true if away mode is on."""
         return None
@@ -462,7 +517,7 @@ class ClimateDevice(Entity):
         """List of available swing modes."""
         return None
 
-    def set_temperature(self, temperature):
+    def set_temperature(self, **kwargs):
         """Set new target temperature."""
         raise NotImplementedError()
 
@@ -501,12 +556,12 @@ class ClimateDevice(Entity):
     @property
     def min_temp(self):
         """Return the minimum temperature."""
-        return convert_temperature(7, TEMP_CELSIUS, self.unit_of_measurement)
+        return convert_temperature(7, TEMP_CELSIUS, self.temperature_unit)
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
-        return convert_temperature(35, TEMP_CELSIUS, self.unit_of_measurement)
+        return convert_temperature(35, TEMP_CELSIUS, self.temperature_unit)
 
     @property
     def min_humidity(self):
@@ -520,16 +575,18 @@ class ClimateDevice(Entity):
 
     def _convert_for_display(self, temp):
         """Convert temperature into preferred units for display purposes."""
-        if temp is None or not isinstance(temp, Number):
+        if (temp is None or not isinstance(temp, Number) or
+                self.temperature_unit == self.unit_of_measurement):
             return temp
 
-        value = convert_temperature(temp, self.unit_of_measurement,
-                                    self.hass.config.units.temperature_unit)
+        value = convert_temperature(temp, self.temperature_unit,
+                                    self.unit_of_measurement)
 
-        if self.hass.config.units.temperature_unit is TEMP_CELSIUS:
-            decimal_count = 1
+        # Round in the units appropriate
+        if self.precision == PRECISION_HALVES:
+            return round(value * 2) / 2.0
+        elif self.precision == PRECISION_TENTHS:
+            return round(value, 1)
         else:
-            # Users of fahrenheit generally expect integer units.
-            decimal_count = 0
-
-        return round(value, decimal_count)
+            # PRECISION_WHOLE as a fall back
+            return round(value)

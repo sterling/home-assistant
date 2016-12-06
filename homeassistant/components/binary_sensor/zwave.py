@@ -36,8 +36,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if discovery_info is None or zwave.NETWORK is None:
         return
 
-    node = zwave.NETWORK.nodes[discovery_info[zwave.ATTR_NODE_ID]]
-    value = node.values[discovery_info[zwave.ATTR_VALUE_ID]]
+    node = zwave.NETWORK.nodes[discovery_info[zwave.const.ATTR_NODE_ID]]
+    value = node.values[discovery_info[zwave.const.ATTR_VALUE_ID]]
     value.set_change_verified(False)
 
     # Make sure that we have values for the key before converting to int
@@ -58,7 +58,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 ])
                 return
 
-    if value.command_class == zwave.COMMAND_CLASS_SENSOR_BINARY:
+    if value.command_class == zwave.const.COMMAND_CLASS_SENSOR_BINARY:
         add_devices([ZWaveBinarySensor(value, None)])
 
 
@@ -96,7 +96,7 @@ class ZWaveBinarySensor(BinarySensorDevice, zwave.ZWaveDeviceEntity, Entity):
         """Called when a value has changed on the network."""
         if self._value.value_id == value.value_id or \
            self._value.node == value.node:
-            self.update_ha_state()
+            self.schedule_update_ha_state()
 
 
 class ZWaveTriggerSensor(ZWaveBinarySensor, Entity):
@@ -112,19 +112,19 @@ class ZWaveTriggerSensor(ZWaveBinarySensor, Entity):
         # If it's active make sure that we set the timeout tracker
         if sensor_value.data:
             track_point_in_time(
-                self._hass, self.update_ha_state,
+                self._hass, self.async_update_ha_state,
                 self.invalidate_after)
 
     def value_changed(self, value):
         """Called when a value has changed on the network."""
         if self._value.value_id == value.value_id:
-            self.update_ha_state()
+            self.schedule_update_ha_state()
             if value.data:
                 # only allow this value to be true for re_arm secs
                 self.invalidate_after = dt_util.utcnow() + datetime.timedelta(
                     seconds=self.re_arm_sec)
                 track_point_in_time(
-                    self._hass, self.update_ha_state,
+                    self._hass, self.async_update_ha_state,
                     self.invalidate_after)
 
     @property

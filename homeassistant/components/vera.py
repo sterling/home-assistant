@@ -20,7 +20,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP)
 from homeassistant.helpers.entity import Entity
 
-REQUIREMENTS = ['pyvera==0.2.15']
+REQUIREMENTS = ['pyvera==0.2.21']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,9 +42,13 @@ CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
         vol.Required(CONF_CONTROLLER): cv.url,
         vol.Optional(CONF_EXCLUDE, default=[]): VERA_ID_LIST_SCHEMA,
-        vol.Optional(CONF_LIGHTS, default=[]): VERA_ID_LIST_SCHEMA,
+        vol.Optional(CONF_LIGHTS, default=[]): VERA_ID_LIST_SCHEMA
     }),
 }, extra=vol.ALLOW_EXTRA)
+
+VERA_COMPONENTS = [
+    'binary_sensor', 'sensor', 'light', 'switch', 'lock', 'climate', 'cover'
+]
 
 
 # pylint: disable=unused-argument, too-many-function-args
@@ -83,15 +87,15 @@ def setup(hass, base_config):
             continue
         VERA_DEVICES[dev_type].append(device)
 
-    for component in 'binary_sensor', 'sensor', 'light', 'switch', 'lock':
+    for component in VERA_COMPONENTS:
         discovery.load_platform(hass, component, DOMAIN, {}, base_config)
 
     return True
 
 
+# pylint: disable=too-many-return-statements
 def map_vera_device(vera_device, remap):
     """Map vera  classes to HA types."""
-    # pylint: disable=too-many-return-statements
     import pyvera as veraApi
     if isinstance(vera_device, veraApi.VeraDimmer):
         return 'light'
@@ -103,12 +107,15 @@ def map_vera_device(vera_device, remap):
         return 'switch'
     if isinstance(vera_device, veraApi.VeraLock):
         return 'lock'
+    if isinstance(vera_device, veraApi.VeraThermostat):
+        return 'climate'
+    if isinstance(vera_device, veraApi.VeraCurtain):
+        return 'cover'
     if isinstance(vera_device, veraApi.VeraSwitch):
         if vera_device.device_id in remap:
             return 'light'
         else:
             return 'switch'
-    # VeraCurtain: NOT SUPPORTED YET
     return None
 
 
@@ -125,7 +132,8 @@ class VeraDevice(Entity):
         self.update()
 
     def _update_callback(self, _device):
-        self.update_ha_state(True)
+        self.update()
+        self.schedule_update_ha_state()
 
     @property
     def name(self):

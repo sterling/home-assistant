@@ -28,7 +28,7 @@ PLATFORM_SCHEMA = vol.Schema({
     vol.Optional(CONF_NAME, default=DEFAULT_ALARM_NAME): cv.string,
     vol.Optional(CONF_CODE): cv.string,
     vol.Optional(CONF_PENDING_TIME, default=DEFAULT_PENDING_TIME):
-        vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.All(vol.Coerce(int), vol.Range(min=0)),
     vol.Optional(CONF_TRIGGER_TIME, default=DEFAULT_TRIGGER_TIME):
         vol.All(vol.Coerce(int), vol.Range(min=1)),
     vol.Optional(CONF_DISARM_AFTER_TRIGGER,
@@ -50,8 +50,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         )])
 
 
-# pylint: disable=too-many-arguments, too-many-instance-attributes
-# pylint: disable=abstract-method
 class ManualAlarm(alarm.AlarmControlPanel):
     """
     Represents an alarm status.
@@ -131,7 +129,7 @@ class ManualAlarm(alarm.AlarmControlPanel):
 
         if self._pending_time:
             track_point_in_time(
-                self._hass, self.update_ha_state,
+                self._hass, self.async_update_ha_state,
                 self._state_ts + self._pending_time)
 
     def alarm_arm_away(self, code=None):
@@ -145,7 +143,7 @@ class ManualAlarm(alarm.AlarmControlPanel):
 
         if self._pending_time:
             track_point_in_time(
-                self._hass, self.update_ha_state,
+                self._hass, self.async_update_ha_state,
                 self._state_ts + self._pending_time)
 
     def alarm_trigger(self, code=None):
@@ -157,11 +155,11 @@ class ManualAlarm(alarm.AlarmControlPanel):
 
         if self._trigger_time:
             track_point_in_time(
-                self._hass, self.update_ha_state,
+                self._hass, self.async_update_ha_state,
                 self._state_ts + self._pending_time)
 
             track_point_in_time(
-                self._hass, self.update_ha_state,
+                self._hass, self.async_update_ha_state,
                 self._state_ts + self._pending_time + self._trigger_time)
 
     def _validate_code(self, code, state):

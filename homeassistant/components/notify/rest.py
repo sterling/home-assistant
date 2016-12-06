@@ -10,7 +10,8 @@ import requests
 import voluptuous as vol
 
 from homeassistant.components.notify import (
-    ATTR_TARGET, ATTR_TITLE, BaseNotificationService, PLATFORM_SCHEMA)
+    ATTR_TARGET, ATTR_TITLE, ATTR_TITLE_DEFAULT, BaseNotificationService,
+    PLATFORM_SCHEMA)
 from homeassistant.const import (CONF_RESOURCE, CONF_METHOD, CONF_NAME)
 import homeassistant.helpers.config_validation as cv
 
@@ -51,7 +52,6 @@ def get_service(hass, config):
         target_param_name)
 
 
-# pylint: disable=too-few-public-methods, too-many-arguments
 class RestNotificationService(BaseNotificationService):
     """Implementation of a notification service for REST."""
 
@@ -71,10 +71,13 @@ class RestNotificationService(BaseNotificationService):
         }
 
         if self._title_param_name is not None:
-            data[self._title_param_name] = kwargs.get(ATTR_TITLE)
+            data[self._title_param_name] = kwargs.get(ATTR_TITLE,
+                                                      ATTR_TITLE_DEFAULT)
 
-        if self._target_param_name is not None:
-            data[self._target_param_name] = kwargs.get(ATTR_TARGET)
+        if self._target_param_name is not None and ATTR_TARGET in kwargs:
+            # Target is a list as of 0.29 and we don't want to break existing
+            # integrations, so just return the first target in the list.
+            data[self._target_param_name] = kwargs[ATTR_TARGET][0]
 
         if self._method == 'POST':
             response = requests.post(self._resource, data=data, timeout=10)

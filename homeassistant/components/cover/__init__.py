@@ -25,9 +25,8 @@ from homeassistant.const import (
 DOMAIN = 'cover'
 SCAN_INTERVAL = 15
 
-GROUP_NAME_ALL_COVERS = 'all_covers'
-ENTITY_ID_ALL_COVERS = group.ENTITY_ID_FORMAT.format(
-    GROUP_NAME_ALL_COVERS)
+GROUP_NAME_ALL_COVERS = 'all covers'
+ENTITY_ID_ALL_COVERS = group.ENTITY_ID_FORMAT.format('all_covers')
 
 ENTITY_ID_FORMAT = DOMAIN + '.{}'
 
@@ -61,6 +60,7 @@ SERVICE_TO_METHOD = {
     SERVICE_STOP_COVER: {'method': 'stop_cover'},
     SERVICE_OPEN_COVER_TILT: {'method': 'open_cover_tilt'},
     SERVICE_CLOSE_COVER_TILT: {'method': 'close_cover_tilt'},
+    SERVICE_STOP_COVER_TILT: {'method': 'stop_cover_tilt'},
     SERVICE_SET_COVER_TILT_POSITION: {
         'method': 'set_cover_tilt_position',
         'schema': COVER_SET_COVER_TILT_POSITION_SCHEMA},

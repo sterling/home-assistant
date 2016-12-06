@@ -14,7 +14,7 @@ from homeassistant.helpers import config_validation as cv
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
-REQUIREMENTS = ['pywemo==0.4.6']
+REQUIREMENTS = ['pywemo==0.4.7']
 
 DOMAIN = 'wemo'
 
@@ -81,7 +81,7 @@ def setup(hass, config):
 
     # Add static devices from the config file.
     devices.extend((address, None)
-                   for address in config.get(DOMAIN, {}).get(CONF_STATIC))
+                   for address in config.get(DOMAIN, {}).get(CONF_STATIC, []))
 
     for address, device in devices:
         port = pywemo.ouimeaux_device.probe_wemo(address)

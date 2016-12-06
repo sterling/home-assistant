@@ -5,11 +5,13 @@ For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/notify.group/
 """
 import collections
+from copy import deepcopy
 import logging
 import voluptuous as vol
 
-from homeassistant.const import (CONF_PLATFORM, CONF_NAME, ATTR_SERVICE)
+from homeassistant.const import ATTR_SERVICE
 from homeassistant.components.notify import (DOMAIN, ATTR_MESSAGE, ATTR_DATA,
+                                             PLATFORM_SCHEMA,
                                              BaseNotificationService)
 import homeassistant.helpers.config_validation as cv
 
@@ -17,9 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_SERVICES = "services"
 
-PLATFORM_SCHEMA = vol.Schema({
-    vol.Required(CONF_PLATFORM): "group",
-    vol.Required(CONF_NAME): vol.Coerce(str),
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_SERVICES): vol.All(cv.ensure_list, [{
         vol.Required(ATTR_SERVICE): cv.slug,
         vol.Optional(ATTR_DATA): dict,
@@ -43,7 +43,6 @@ def get_service(hass, config):
     return GroupNotifyPlatform(hass, config.get(CONF_SERVICES))
 
 
-# pylint: disable=too-few-public-methods
 class GroupNotifyPlatform(BaseNotificationService):
     """Implement the notification service for the group notify playform."""
 
@@ -58,7 +57,7 @@ class GroupNotifyPlatform(BaseNotificationService):
         payload.update({key: val for key, val in kwargs.items() if val})
 
         for entity in self.entities:
-            sending_payload = payload.copy()
+            sending_payload = deepcopy(payload.copy())
             if entity.get(ATTR_DATA) is not None:
                 update(sending_payload, entity.get(ATTR_DATA))
             self.hass.services.call(DOMAIN, entity.get(ATTR_SERVICE),

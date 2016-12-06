@@ -14,7 +14,10 @@ COMMENT_REQUIREMENTS = (
     'pybluez',
     'bluepy',
     'python-lirc',
-    'gattlib'
+    'gattlib',
+    'pyuserinput',
+    'evdev',
+    'pycups',
 )
 
 IGNORE_PACKAGES = (
@@ -134,6 +137,7 @@ def main():
         sys.exit(1)
 
     write_file(data)
+
 
 if __name__ == '__main__':
     main()

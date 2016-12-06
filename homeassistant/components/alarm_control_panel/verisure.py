@@ -8,7 +8,7 @@ import logging
 
 import homeassistant.components.alarm_control_panel as alarm
 from homeassistant.components.verisure import HUB as hub
-
+from homeassistant.components.verisure import (CONF_ALARM, CONF_CODE_DIGITS)
 from homeassistant.const import (
     STATE_ALARM_ARMED_AWAY, STATE_ALARM_ARMED_HOME, STATE_ALARM_DISARMED,
     STATE_UNKNOWN)
@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the Verisure platform."""
     alarms = []
-    if int(hub.config.get('alarm', '1')):
+    if int(hub.config.get(CONF_ALARM, 1)):
         hub.update_alarms()
         alarms.extend([
             VerisureAlarm(value.id)
@@ -28,7 +28,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices(alarms)
 
 
-# pylint: disable=abstract-method
 class VerisureAlarm(alarm.AlarmControlPanel):
     """Represent a Verisure alarm status."""
 
@@ -36,7 +35,7 @@ class VerisureAlarm(alarm.AlarmControlPanel):
         """Initalize the Verisure alarm panel."""
         self._id = device_id
         self._state = STATE_UNKNOWN
-        self._digits = int(hub.config.get('code_digits', '4'))
+        self._digits = hub.config.get(CONF_CODE_DIGITS)
         self._changed_by = None
 
     @property

@@ -14,7 +14,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers.entity import Entity
 from homeassistant.const import (ATTR_ENTITY_ID, TEMP_CELSIUS)
 
-REQUIREMENTS = ['pyRFXtrx==0.11.0']
+REQUIREMENTS = ['pyRFXtrx==0.13.0']
 
 DOMAIN = "rfxtrx"
 
@@ -94,6 +94,7 @@ def valid_sensor(value):
 def _valid_light_switch(value):
     return _valid_device(value, "light_switch")
 
+
 DEVICE_SCHEMA = vol.Schema({
     vol.Required(ATTR_NAME): cv.string,
     vol.Optional(ATTR_FIREEVENT, default=False): cv.boolean,
@@ -153,13 +154,15 @@ def setup(hass, config):
 
     if dummy_connection:
         RFXOBJECT =\
-            rfxtrxmod.Core(device, handle_receive, debug=debug,
-                           transport_protocol=rfxtrxmod.DummyTransport2)
+            rfxtrxmod.Connect(device, handle_receive, debug=debug,
+                              transport_protocol=rfxtrxmod.DummyTransport2)
     else:
-        RFXOBJECT = rfxtrxmod.Core(device, handle_receive, debug=debug)
+        RFXOBJECT = rfxtrxmod.Connect(device, handle_receive, debug=debug)
 
     def _shutdown_rfxtrx(event):
+        """Close connection with RFXtrx."""
         RFXOBJECT.close_connection()
+
     hass.bus.listen_once(EVENT_HOMEASSISTANT_STOP, _shutdown_rfxtrx)
 
     return True
@@ -277,7 +280,6 @@ class RfxtrxDevice(Entity):
     """Represents a Rfxtrx device.
 
     Contains the common logic for Rfxtrx lights and switches.
-
     """
 
     def __init__(self, name, event, datas, signal_repetitions):
@@ -325,7 +327,6 @@ class RfxtrxDevice(Entity):
         self.update_ha_state()
 
     def _send_command(self, command, brightness=0):
-        # pylint: disable=too-many-return-statements,too-many-branches
         if not self._event:
             return
 

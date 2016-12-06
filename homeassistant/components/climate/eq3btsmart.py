@@ -1,26 +1,38 @@
 """
-Support for eq3 Bluetooth Smart thermostats.
+Support for eQ-3 Bluetooth Smart thermostats.
 
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/climate.eq3btsmart/
 """
 import logging
 
-from homeassistant.components.climate import ClimateDevice
-from homeassistant.const import TEMP_CELSIUS
+import voluptuous as vol
+
+from homeassistant.components.climate import ClimateDevice, PLATFORM_SCHEMA
+from homeassistant.const import (
+    CONF_MAC, TEMP_CELSIUS, CONF_DEVICES, ATTR_TEMPERATURE)
 from homeassistant.util.temperature import convert
+import homeassistant.helpers.config_validation as cv
 
 REQUIREMENTS = ['bluepy_devices==0.2.0']
 
-CONF_MAC = 'mac'
-CONF_DEVICES = 'devices'
-CONF_ID = 'id'
-
 _LOGGER = logging.getLogger(__name__)
+
+ATTR_MODE = 'mode'
+ATTR_MODE_READABLE = 'mode_readable'
+
+DEVICE_SCHEMA = vol.Schema({
+    vol.Required(CONF_MAC): cv.string,
+})
+
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
+    vol.Required(CONF_DEVICES):
+        vol.Schema({cv.string: DEVICE_SCHEMA}),
+})
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup the eq3 BLE thermostats."""
+    """Setup the eQ-3 BLE thermostats."""
     devices = []
 
     for name, device_cfg in config[CONF_DEVICES].items():
@@ -28,19 +40,17 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         devices.append(EQ3BTSmartThermostat(mac, name))
 
     add_devices(devices)
-    return True
 
 
-# pylint: disable=too-many-instance-attributes, import-error, abstract-method
+# pylint: disable=import-error
 class EQ3BTSmartThermostat(ClimateDevice):
-    """Representation of a EQ3 Bluetooth Smart thermostat."""
+    """Representation of a eQ-3 Bluetooth Smart thermostat."""
 
     def __init__(self, _mac, _name):
         """Initialize the thermostat."""
         from bluepy_devices.devices import eq3btsmart
 
         self._name = _name
-
         self._thermostat = eq3btsmart.EQ3BTSmartThermostat(_mac)
 
     @property
@@ -49,7 +59,7 @@ class EQ3BTSmartThermostat(ClimateDevice):
         return self._name
 
     @property
-    def unit_of_measurement(self):
+    def temperature_unit(self):
         """Return the unit of measurement that is used."""
         return TEMP_CELSIUS
 
@@ -63,15 +73,20 @@ class EQ3BTSmartThermostat(ClimateDevice):
         """Return the temperature we try to reach."""
         return self._thermostat.target_temperature
 
-    def set_temperature(self, temperature):
+    def set_temperature(self, **kwargs):
         """Set new target temperature."""
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        if temperature is None:
+            return
         self._thermostat.target_temperature = temperature
 
     @property
     def device_state_attributes(self):
         """Return the device specific state attributes."""
-        return {"mode": self._thermostat.mode,
-                "mode_readable": self._thermostat.mode_readable}
+        return {
+            ATTR_MODE: self._thermostat.mode,
+            ATTR_MODE_READABLE: self._thermostat.mode_readable,
+        }
 
     @property
     def min_temp(self):

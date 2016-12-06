@@ -5,22 +5,26 @@ For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/climate.generic_thermostat/
 """
 import logging
+
 import voluptuous as vol
 
-import homeassistant.helpers.config_validation as cv
 from homeassistant.components import switch
 from homeassistant.components.climate import (
-    STATE_HEAT, STATE_COOL, STATE_IDLE, ClimateDevice)
-from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, STATE_ON, STATE_OFF
+    STATE_HEAT, STATE_COOL, STATE_IDLE, ClimateDevice, PLATFORM_SCHEMA)
+from homeassistant.const import (
+    ATTR_UNIT_OF_MEASUREMENT, STATE_ON, STATE_OFF, ATTR_TEMPERATURE)
 from homeassistant.helpers import condition
 from homeassistant.helpers.event import track_state_change
+import homeassistant.helpers.config_validation as cv
+
+_LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ['switch', 'sensor']
 
-TOL_TEMP = 0.3
+DEFAULT_TOLERANCE = 0.3
+DEFAULT_NAME = 'Generic Thermostat'
 
 CONF_NAME = 'name'
-DEFAULT_NAME = 'Generic Thermostat'
 CONF_HEATER = 'heater'
 CONF_SENSOR = 'target_sensor'
 CONF_MIN_TEMP = 'min_temp'
@@ -28,19 +32,19 @@ CONF_MAX_TEMP = 'max_temp'
 CONF_TARGET_TEMP = 'target_temp'
 CONF_AC_MODE = 'ac_mode'
 CONF_MIN_DUR = 'min_cycle_duration'
+CONF_TOLERANCE = 'tolerance'
 
-_LOGGER = logging.getLogger(__name__)
 
-PLATFORM_SCHEMA = vol.Schema({
-    vol.Required("platform"): "generic_thermostat",
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HEATER): cv.entity_id,
     vol.Required(CONF_SENSOR): cv.entity_id,
-    vol.Optional(CONF_MIN_TEMP): vol.Coerce(float),
+    vol.Optional(CONF_AC_MODE): cv.boolean,
     vol.Optional(CONF_MAX_TEMP): vol.Coerce(float),
-    vol.Optional(CONF_TARGET_TEMP): vol.Coerce(float),
-    vol.Optional(CONF_AC_MODE): vol.Coerce(bool),
     vol.Optional(CONF_MIN_DUR): vol.All(cv.time_period, cv.positive_timedelta),
+    vol.Optional(CONF_MIN_TEMP): vol.Coerce(float),
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_TOLERANCE, default=DEFAULT_TOLERANCE): vol.Coerce(float),
+    vol.Optional(CONF_TARGET_TEMP): vol.Coerce(float),
 })
 
 
@@ -54,26 +58,26 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     target_temp = config.get(CONF_TARGET_TEMP)
     ac_mode = config.get(CONF_AC_MODE)
     min_cycle_duration = config.get(CONF_MIN_DUR)
+    tolerance = config.get(CONF_TOLERANCE)
 
-    add_devices([GenericThermostat(hass, name, heater_entity_id,
-                                   sensor_entity_id, min_temp,
-                                   max_temp, target_temp, ac_mode,
-                                   min_cycle_duration)])
+    add_devices([GenericThermostat(
+        hass, name, heater_entity_id, sensor_entity_id, min_temp, max_temp,
+        target_temp, ac_mode, min_cycle_duration, tolerance)])
 
 
-# pylint: disable=too-many-instance-attributes, abstract-method
 class GenericThermostat(ClimateDevice):
     """Representation of a GenericThermostat device."""
 
-    # pylint: disable=too-many-arguments
     def __init__(self, hass, name, heater_entity_id, sensor_entity_id,
-                 min_temp, max_temp, target_temp, ac_mode, min_cycle_duration):
+                 min_temp, max_temp, target_temp, ac_mode, min_cycle_duration,
+                 tolerance):
         """Initialize the thermostat."""
         self.hass = hass
         self._name = name
         self.heater_entity_id = heater_entity_id
         self.ac_mode = ac_mode
         self.min_cycle_duration = min_cycle_duration
+        self._tolerance = tolerance
 
         self._active = False
         self._cur_temp = None
@@ -99,7 +103,7 @@ class GenericThermostat(ClimateDevice):
         return self._name
 
     @property
-    def unit_of_measurement(self):
+    def temperature_unit(self):
         """Return the unit of measurement."""
         return self._unit
 
@@ -109,7 +113,7 @@ class GenericThermostat(ClimateDevice):
         return self._cur_temp
 
     @property
-    def operation(self):
+    def current_operation(self):
         """Return current operation ie. heat, cool, idle."""
         if self.ac_mode:
             cooling = self._active and self._is_device_active
@@ -123,8 +127,11 @@ class GenericThermostat(ClimateDevice):
         """Return the temperature we try to reach."""
         return self._target_temp
 
-    def set_temperature(self, temperature):
+    def set_temperature(self, **kwargs):
         """Set new target temperature."""
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        if temperature is None:
+            return
         self._target_temp = temperature
         self._control_heating()
         self.update_ha_state()
@@ -143,7 +150,7 @@ class GenericThermostat(ClimateDevice):
     def max_temp(self):
         """Return the maximum temperature."""
         # pylint: disable=no-member
-        if self._min_temp:
+        if self._max_temp:
             return self._max_temp
         else:
             # Get default temp from super class
@@ -156,7 +163,7 @@ class GenericThermostat(ClimateDevice):
 
         self._update_temp(new_state)
         self._control_heating()
-        self.update_ha_state()
+        self.schedule_update_ha_state()
 
     def _update_temp(self, state):
         """Update thermostat with latest state from sensor."""
@@ -191,7 +198,7 @@ class GenericThermostat(ClimateDevice):
                 return
 
         if self.ac_mode:
-            too_hot = self._cur_temp - self._target_temp > TOL_TEMP
+            too_hot = self._cur_temp - self._target_temp > self._tolerance
             is_cooling = self._is_device_active
             if too_hot and not is_cooling:
                 _LOGGER.info('Turning on AC %s', self.heater_entity_id)
@@ -200,7 +207,7 @@ class GenericThermostat(ClimateDevice):
                 _LOGGER.info('Turning off AC %s', self.heater_entity_id)
                 switch.turn_off(self.hass, self.heater_entity_id)
         else:
-            too_cold = self._target_temp - self._cur_temp > TOL_TEMP
+            too_cold = self._target_temp - self._cur_temp > self._tolerance
             is_heating = self._is_device_active
 
             if too_cold and not is_heating:

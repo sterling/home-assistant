@@ -14,8 +14,7 @@ from homeassistant.components.sensor import (DOMAIN, PLATFORM_SCHEMA)
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import track_time_change
 
-REQUIREMENTS = ['https://github.com/nkgilley/fast.com/archive/'
-                'master.zip#fastdotcom==0.0.1']
+REQUIREMENTS = ['fastdotcom==0.0.1']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +49,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     hass.services.register(DOMAIN, 'update_fastdotcom', update)
 
 
-# pylint: disable=too-few-public-methods
 class SpeedtestSensor(Entity):
     """Implementation of a FAst.com sensor."""
 

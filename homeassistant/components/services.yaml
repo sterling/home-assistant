@@ -39,6 +39,23 @@ foursquare:
         description: Vertical accuracy of the user's location, in meters.
         example: 1
 
+group:
+  reload:
+    description: "Reload group configuration."
+    fields:
+
+  set_visibility:
+    description: Hide or show a group
+
+    fields:
+      entity_id:
+        description: Name(s) of entities to set value
+        example: 'group.travel'
+
+      visible:
+        description: True if group should be shown or False if it should be hidden.
+        example: True
+
 persistent_notification:
   create:
     description: Show a notification in the frontend
@@ -73,7 +90,11 @@ homematic:
         description: Event to send i.e. PRESS_LONG, PRESS_SHORT
         example: PRESS_LONG
 
-  set_value:
+      proxy:
+        description: (Optional) for set a hosts value
+        example: Hosts name from config
+
+  set_var_value:
     description: Set the name of a node.
 
     fields:
@@ -85,40 +106,50 @@ homematic:
         description: New value
         example: 1
 
-zwave:
-  add_node:
-    description: Add a new node to the zwave network. Refer to OZW.log for details.
+  set_dev_value:
+    description: Set a device property on RPC XML inteface.
 
-  add_node_secure:
-    description: Add a new node to the zwave network with secure communications. Node must support this, and network key must be set. Refer to OZW.log for details.
+    fields:
+      address:
+        description: Address of homematic device or BidCoS-RF for virtual remote
+        example: BidCoS-RF
 
-  cancel_command:
-    description: Cancel a running zwave controller command. Use this to exit add_node, if you wasn't going to use it but activated it.
+      channel:
+        description: Channel for calling a keypress
+        example: 1
 
-  heal_network:
-    description: Start a zwave network heal. This might take a while and will slow down the zwave network greatly while it is being processed. Refer to OZW.log for details.
+      param:
+        description: Event to send i.e. PRESS_LONG, PRESS_SHORT
+        example: PRESS_LONG
 
-  remove_node:
-    description: Remove a node from the zwave network. Refer to OZW.log for details.
+      proxy:
+        description: (Optional) for set a hosts value
+        example: Hosts name from config
 
-  start_network:
-    description: Start the zwave network. This might take a while, depending on how big your zwave network is.
+      value:
+        description: New value
+        example: 1
 
-  stop_network:
-    description: Stop the zwave network, all updates into HASS will stop.
+  reconnect:
+    description: Reconnect to all Homematic Hubs.
 
-  soft_reset:
-    description: This will reset the controller without removing its data. Use carefully because not all controllers support this. Refer to controllers manual.
+openalpr:
+  scan:
+    description: Scan immediately a device.
 
-  test_network:
-    description: This will send test to nodes in the zwave network. This will greatly slow down the zwave network while it is being processed. Refer to OZW.log for details.
-
-  rename_node:
-    description: Set the name of a node.
     fields:
       entity_id:
-        description: Name(s) of entities to to rename
-        example: 'light.leviton_vrmx11lz_multilevel_scene_switch_level_40'
-      name:
-        description: New Name
-        example: 'kitchen'
+        description: Name(s) of entities to scan
+        example: 'openalpr.garage'
+
+  restart:
+    description: Restart ffmpeg process of device.
+
+verisure:
+  capture_smartcam:
+    description: Capture a new image from a smartcam.
+
+    fields:
+      device_serial:
+        description: The serial number of the smartcam you want to capture an image from.
+        example: '2DEU AT5Z'

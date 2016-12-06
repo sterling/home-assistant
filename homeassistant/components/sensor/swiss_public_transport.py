@@ -11,7 +11,7 @@ import requests
 import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, ATTR_ATTRIBUTION
 import homeassistant.util.dt as dt_util
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
@@ -20,12 +20,13 @@ import homeassistant.helpers.config_validation as cv
 _LOGGER = logging.getLogger(__name__)
 _RESOURCE = 'http://transport.opendata.ch/v1/'
 
-ATTR_DEPARTURE_TIME1 = 'Next departure'
-ATTR_DEPARTURE_TIME2 = 'Next on departure'
-ATTR_REMAINING_TIME = 'Remaining time'
-ATTR_START = 'Start'
-ATTR_TARGET = 'Destination'
+ATTR_DEPARTURE_TIME1 = 'next_departure'
+ATTR_DEPARTURE_TIME2 = 'next_on_departure'
+ATTR_REMAINING_TIME = 'remaining_time'
+ATTR_START = 'start'
+ATTR_TARGET = 'destination'
 
+CONF_ATTRIBUTION = "Data provided by transport.opendata.ch"
 CONF_DESTINATION = 'to'
 CONF_START = 'from'
 
@@ -64,7 +65,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([SwissPublicTransportSensor(data, journey, name)])
 
 
-# pylint: disable=too-few-public-methods
 class SwissPublicTransportSensor(Entity):
     """Implementation of an Swiss public transport sensor."""
 
@@ -96,7 +96,8 @@ class SwissPublicTransportSensor(Entity):
                 ATTR_START: self._from,
                 ATTR_TARGET: self._to,
                 ATTR_REMAINING_TIME: '{}'.format(
-                    ':'.join(str(self._times[2]).split(':')[:2]))
+                    ':'.join(str(self._times[2]).split(':')[:2])),
+                ATTR_ATTRIBUTION: CONF_ATTRIBUTION,
             }
 
     @property
@@ -104,7 +105,6 @@ class SwissPublicTransportSensor(Entity):
         """Icon to use in the frontend, if any."""
         return ICON
 
-    # pylint: disable=too-many-branches
     def update(self):
         """Get the latest data from opendata.ch and update the states."""
         self.data.update()
@@ -115,7 +115,6 @@ class SwissPublicTransportSensor(Entity):
             pass
 
 
-# pylint: disable=too-few-public-methods
 class PublicTransportData(object):
     """The Class for handling the data retrieval."""
 

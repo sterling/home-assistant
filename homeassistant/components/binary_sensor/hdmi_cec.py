@@ -10,7 +10,7 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA, ENTITY_ID_FORMAT
+from homeassistant.components.binary_sensor import PLATFORM_SCHEMA, ENTITY_ID_FORMAT
 from homeassistant.const import CONF_NAME, CONF_DEVICES, \
     STATE_ON, STATE_OFF, STATE_UNKNOWN
 from homeassistant.helpers.entity import Entity
@@ -60,14 +60,14 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     sensors = []
     if devices is None:
-        sensors.append(CECSensor("tv", "TV", 0))
+        sensors.append(CECBinarySensor("tv", "TV", 0))
     else:
         for device_name, device_config in devices.items():
             logical_address = int(device_config.get(CONF_LOGICAL_ADDRESS), 16)
             name = device_config.get(CONF_NAME, device_name)
 
             if logical_address >= 0 and logical_address <= 14:
-                sensors.append(CECSensor(device_name, name, logical_address))
+                sensors.append(CECBinarySensor(device_name, name, logical_address))
             else:
                 _LOGGER.error("Bad logical address for device: %s (%s). " +
                               "Must be between 0 and 14 (inclusively)",
@@ -75,7 +75,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     add_devices(sensors)
 
-class CECSensor(Entity):
+class CECBinarySensor(Entity):
     """Representation of an HDMI CEC Sensor."""
     def __init__(self, device_name, name, logical_address):
         self._device_name = device_name

@@ -26,26 +26,48 @@ STATE_TRANSITIONING_ON = 'turning_on'
 STATE_TRANSITIONING_OFF = 'turning_off'
 
 DEVICES_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME): cv.string,
+    vol.Optional(CONF_NAME): cv.string,
     vol.Required(CONF_LOGICAL_ADDRESS): cv.string,
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Optional(CONF_DEVICES): vol.All(cv.ensure_list, DEVICES_SCHEMA),
-    vol.Optional(CONF_LOGICAL_ADDRESS): cv.string,
+    vol.Optional(CONF_DEVICES): vol.Schema({cv.slug: DEVICES_SCHEMA}),
 })
+
+icons = {
+    1: "mdi:camcorder-box",
+    2: "mdi:camcorder-box",
+    3: "mdi:tune",
+    4: "mdi:play-circle-outline",
+    5: "mdi:speaker",
+    6: "mdi:tune",
+    7: "mdi:tune",
+    8: "mdi:play-circle-outline",
+    9: "mdi:play-circle-outline",
+    10: "mdi:tune",
+    11: "mdi:play-circle-outline",
+}
+
+power_states = {
+    0: STATE_ON,    # on
+    1: STATE_OFF,   # standby
+    2: STATE_ON,    # transitioning from standby to on
+    3: STATE_OFF,   # transitioning from on to standby
+}
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     devices = config.get(CONF_DEVICES)
 
     sensors = []
     if devices is None:
-        sensors.append(CECSensor('TV', 0))
+        sensors.append(CECSensor("tv", "TV", 0))
     else:
-        for name, logical_address in devices:
-            logical_address = int(logical_address, 16)
-            if logical_address >= 0 and logical_address >= 14:
-                sensors.append(CECSensor(name, logical_address))
+        for device_name, device_config in devices.items():
+            logical_address = int(device_config.get(CONF_LOGICAL_ADDRESS), 16)
+            name = device_config.get(CONF_NAME, device_name)
+
+            if logical_address >= 0 and logical_address <= 14:
+                sensors.append(CECSensor(device_name, name, logical_address))
             else:
                 _LOGGER.error("Bad logical address for device: %s (%s). " +
                               "Must be between 0 and 14 (inclusively)",
@@ -55,11 +77,19 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
 class CECSensor(Entity):
     """Representation of an HDMI CEC Sensor."""
-    def __init__(self, name, logical_address):
+    def __init__(self, device_name, name, logical_address):
+        self._device_name = device_name
         self._name = name
         self._address = logical_address
         self._state = STATE_OFF
-        self.entity_id = ENTITY_ID_FORMAT.format(cec.DOMAIN + "_" + name)
+        self.entity_id = ENTITY_ID_FORMAT.format(self._device_id())
+
+    def _device_id(self):
+        return "{}_{}".format(cec.DOMAIN, self._device_name).lower()
+
+    @property
+    def icon(self):
+        return icons.get(self._address, "mdi:television")
 
     @property
     def state(self):
@@ -71,13 +101,4 @@ class CECSensor(Entity):
 
     def update(self):
         state = cec.getDevicePowerStatus(self._address)
-        if state is 0:
-            self._state = STATE_ON
-        elif state is 1:
-            self._state = STATE_OFF
-        elif state is 2:
-            self._state = STATE_TRANSITIONING_ON
-        elif state is 3:
-            self._state = STATE_TRANSITIONING_OFF
-        else:
-            self._state = STATE_UNKNOWN
+        return power_states.get(state, STATE_UNKNOWN)

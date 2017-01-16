@@ -38,6 +38,7 @@ CONFIG_SCHEMA = vol.Schema({
 
 CEC_READY = False
 
+
 def parse_mapping(mapping, parents=None):
     """Parse configuration device mapping."""
     if parents is None:
@@ -54,19 +55,22 @@ def pad_physical_address(addr):
     """Right-pad a physical address."""
     return addr + ['0'] * (MAX_DEPTH - len(addr))
 
+
 def ping_adapter():
-    """"Check if the adapter is ready and available"""
+    """"Check if the adapter is ready and available."""
     if not CEC_READY:
         return False
     else:
         return _CEC.PingAdapter()
 
+
 def get_device_power_status(logical_address):
-    """Get the power status of a device using its logical address"""
+    """Get the power status of a device using its logical address."""
     if not CEC_READY:
-        return 0x99 # Unknown status
+        return 0x99  # Unknown status
     else:
         return _CEC.GetDevicePowerStatus(logical_address)
+
 
 def setup(hass, config):
     """Setup CEC capability."""

@@ -53,8 +53,9 @@ POWER_STATES = {
     3: False,   # transitioning from on to standby
 }
 
+
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup HDMI CEC binary sensors"""
+    """Setup HDMI CEC binary sensors."""
     devices = config.get(CONF_DEVICES)
 
     sensors = []
@@ -66,7 +67,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             name = device_config.get(CONF_NAME, device_name)
 
             if 0 <= logical_address <= 14:
-                sensors.append(CECBinarySensor(device_name, name, logical_address))
+                sensors.append(
+                    CECBinarySensor(device_name, name, logical_address)
+                )
             else:
                 _LOGGER.error("Bad logical address for device: %s (%s). " +
                               "Must be between 0 and 14 (inclusively)",
@@ -74,9 +77,12 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     add_devices(sensors)
 
+
 class CECBinarySensor(BinarySensorDevice):
     """Representation of an HDMI CEC Binary Sensor."""
+
     def __init__(self, device_name, name, logical_address):
+        """Initialize the HDMI CEC Binary Sensor."""
         self._device_name = device_name
         self._name = name
         self._address = logical_address
@@ -88,16 +94,20 @@ class CECBinarySensor(BinarySensorDevice):
 
     @property
     def icon(self):
+        """Get the appropriate device icon."""
         return ICONS.get(self._address, "mdi:television")
 
     @property
     def name(self):
+        """Get device name."""
         return self._name
 
     @property
     def is_on(self):
+        """True if the device is on."""
         return self._state
 
     def update(self):
+        """Update the device state."""
         state = cec.get_device_power_status(self._address)
         self._state = POWER_STATES.get(state, False)

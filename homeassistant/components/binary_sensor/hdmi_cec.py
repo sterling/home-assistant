@@ -7,13 +7,11 @@ For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/sensor.arduino/
 """
 import logging
-
 import voluptuous as vol
 
-from homeassistant.components.binary_sensor import PLATFORM_SCHEMA, ENTITY_ID_FORMAT
-from homeassistant.const import CONF_NAME, CONF_DEVICES, \
-    STATE_ON, STATE_OFF, STATE_UNKNOWN
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.binary_sensor import (
+    PLATFORM_SCHEMA, ENTITY_ID_FORMAT, BinarySensorDevice)
+from homeassistant.const import CONF_NAME, CONF_DEVICES
 import homeassistant.helpers.config_validation as cv
 import homeassistant.components.hdmi_cec as cec
 
@@ -49,10 +47,10 @@ icons = {
 }
 
 power_states = {
-    0: STATE_ON,    # on
-    1: STATE_OFF,   # standby
-    2: STATE_ON,    # transitioning from standby to on
-    3: STATE_OFF,   # transitioning from on to standby
+    0: True,    # on
+    1: False,   # standby
+    2: True,    # transitioning from standby to on
+    3: False,   # transitioning from on to standby
 }
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
@@ -66,7 +64,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             logical_address = int(device_config.get(CONF_LOGICAL_ADDRESS), 16)
             name = device_config.get(CONF_NAME, device_name)
 
-            if logical_address >= 0 and logical_address <= 14:
+            if 0 <= logical_address <= 14:
                 sensors.append(CECBinarySensor(device_name, name, logical_address))
             else:
                 _LOGGER.error("Bad logical address for device: %s (%s). " +
@@ -75,13 +73,13 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     add_devices(sensors)
 
-class CECBinarySensor(Entity):
-    """Representation of an HDMI CEC Sensor."""
+class CECBinarySensor(BinarySensorDevice):
+    """Representation of an HDMI CEC Binary Sensor."""
     def __init__(self, device_name, name, logical_address):
         self._device_name = device_name
         self._name = name
         self._address = logical_address
-        self._state = STATE_OFF
+        self._state = False
         self.entity_id = ENTITY_ID_FORMAT.format(self._device_id())
 
     def _device_id(self):
@@ -92,13 +90,13 @@ class CECBinarySensor(Entity):
         return icons.get(self._address, "mdi:television")
 
     @property
-    def state(self):
-        return self._state
-
-    @property
     def name(self):
         return self._name
 
+    @property
+    def is_on(self):
+        return self._state
+
     def update(self):
         state = cec.getDevicePowerStatus(self._address)
-        return power_states.get(state, STATE_UNKNOWN)
+        self._state = power_states.get(state, False)

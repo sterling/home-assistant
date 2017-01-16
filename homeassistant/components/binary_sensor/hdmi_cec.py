@@ -32,7 +32,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_DEVICES): vol.Schema({cv.slug: DEVICES_SCHEMA}),
 })
 
-icons = {
+ICONS = {
     1: "mdi:camcorder-box",
     2: "mdi:camcorder-box",
     3: "mdi:tune",
@@ -46,7 +46,7 @@ icons = {
     11: "mdi:play-circle-outline",
 }
 
-power_states = {
+POWER_STATES = {
     0: True,    # on
     1: False,   # standby
     2: True,    # transitioning from standby to on
@@ -54,6 +54,7 @@ power_states = {
 }
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
+    """Setup HDMI CEC binary sensors"""
     devices = config.get(CONF_DEVICES)
 
     sensors = []
@@ -87,7 +88,7 @@ class CECBinarySensor(BinarySensorDevice):
 
     @property
     def icon(self):
-        return icons.get(self._address, "mdi:television")
+        return ICONS.get(self._address, "mdi:television")
 
     @property
     def name(self):
@@ -98,5 +99,5 @@ class CECBinarySensor(BinarySensorDevice):
         return self._state
 
     def update(self):
-        state = cec.getDevicePowerStatus(self._address)
-        self._state = power_states.get(state, False)
+        state = cec.get_device_power_status(self._address)
+        self._state = POWER_STATES.get(state, False)

@@ -36,8 +36,7 @@ CONFIG_SCHEMA = vol.Schema({
     })
 }, extra=vol.ALLOW_EXTRA)
 
-flat = {}
-cec_ready = False
+CEC_READY = False
 
 def parse_mapping(mapping, parents=None):
     """Parse configuration device mapping."""
@@ -56,20 +55,22 @@ def pad_physical_address(addr):
     return addr + ['0'] * (MAX_DEPTH - len(addr))
 
 def ping_adapter():
-    if not cec_ready:
+    """"Check if the adapter is ready and available"""
+    if not CEC_READY:
         return False
     else:
         return _CEC.PingAdapter()
 
-def getDevicePowerStatus(logical_address):
-    if not cec_ready:
+def get_device_power_status(logical_address):
+    """Get the power status of a device using its logical address"""
+    if not CEC_READY:
         return 0x99 # Unknown status
     else:
         return _CEC.GetDevicePowerStatus(logical_address)
 
 def setup(hass, config):
     """Setup CEC capability."""
-    global _CEC, cec_ready
+    global _CEC
 
     try:
         import cec
@@ -79,6 +80,7 @@ def setup(hass, config):
 
     # Parse configuration into a dict of device name to physical address
     # represented as a list of four elements.
+    flat = {}
     for pair in parse_mapping(config[DOMAIN].get(CONF_DEVICES, {})):
         flat[pair[0]] = pad_physical_address(pair[1])
 
@@ -122,9 +124,9 @@ def setup(hass, config):
         _LOGGER.info("Selected CEC device: %s", call.data[ATTR_DEVICE])
 
     def _start_cec(event):
-        global cec_ready
-
         """Open CEC adapter."""
+        global CEC_READY
+
         adapters = _CEC.DetectAdapters()
         if len(adapters) == 0:
             _LOGGER.error("No CEC adapter found")
@@ -135,7 +137,7 @@ def setup(hass, config):
             hass.services.register(DOMAIN, SERVICE_STANDBY, _standby)
             hass.services.register(DOMAIN, SERVICE_SELECT_DEVICE,
                                    _select_device)
-            cec_ready = True
+            CEC_READY = True
         else:
             _LOGGER.error("Failed to open CEC adapter")
 

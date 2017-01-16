@@ -1,11 +1,4 @@
-"""
-Support for getting information from Arduino pins.
-
-Only analog pins are supported.
-
-For more details about this platform, please refer to the documentation at
-https://home-assistant.io/components/sensor.arduino/
-"""
+"""Support for on/off state of HDMI CEC devices."""
 import logging
 import voluptuous as vol
 

@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 ATTR_DEVICE = 'device'
 
-DOMAIN = 'hdmi_cec'
+DOMAIN = 'cec'
 
 MAX_DEPTH = 4
 

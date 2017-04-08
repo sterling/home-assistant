@@ -6,7 +6,7 @@ from homeassistant.components.binary_sensor import (
     PLATFORM_SCHEMA, ENTITY_ID_FORMAT, BinarySensorDevice)
 from homeassistant.const import CONF_NAME, CONF_DEVICES
 import homeassistant.helpers.config_validation as cv
-import homeassistant.components.hdmi_cec as cec
+import homeassistant.components.cec as cec
 
 _LOGGER = logging.getLogger(__name__)
 

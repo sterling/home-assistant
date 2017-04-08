@@ -10,7 +10,7 @@ import homeassistant.components.cec as cec
 
 _LOGGER = logging.getLogger(__name__)
 
-DEPENDENCIES = ['hdmi_cec']
+DEPENDENCIES = ['cec']
 
 CONF_LOGICAL_ADDRESS = 'logical_address'
 STATE_TRANSITIONING_ON = 'turning_on'

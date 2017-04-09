@@ -21,7 +21,6 @@ from homeassistant.const import (
     STATE_ON, SERVICE_TURN_ON, SERVICE_TURN_OFF, SERVICE_TOGGLE,
     ATTR_ENTITY_ID)
 from homeassistant.components import group
-from homeassistant.util.async import run_callback_threadsafe
 
 DOMAIN = 'switch'
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -31,14 +30,14 @@ ENTITY_ID_ALL_SWITCHES = group.ENTITY_ID_FORMAT.format('all_switches')
 
 ENTITY_ID_FORMAT = DOMAIN + '.{}'
 
-ATTR_TODAY_MWH = "today_mwh"
-ATTR_CURRENT_POWER_MWH = "current_power_mwh"
+ATTR_TODAY_ENERGY_KWH = "today_energy_kwh"
+ATTR_CURRRENT_POWER_W = "current_power_w"
 
 MIN_TIME_BETWEEN_SCANS = timedelta(seconds=10)
 
 PROP_TO_ATTR = {
-    'current_power_mwh': ATTR_CURRENT_POWER_MWH,
-    'today_power_mw': ATTR_TODAY_MWH,
+    'current_power_w': ATTR_CURRRENT_POWER_W,
+    'today_energy_kwh': ATTR_TODAY_ENERGY_KWH,
 }
 
 SWITCH_SERVICE_SCHEMA = vol.Schema({
@@ -59,8 +58,7 @@ def is_on(hass, entity_id=None):
 
 def turn_on(hass, entity_id=None):
     """Turn all or specified switch on."""
-    run_callback_threadsafe(
-        hass.loop, async_turn_on, hass, entity_id).result()
+    hass.add_job(async_turn_on, hass, entity_id)
 
 
 @callback
@@ -72,8 +70,7 @@ def async_turn_on(hass, entity_id=None):
 
 def turn_off(hass, entity_id=None):
     """Turn all or specified switch off."""
-    run_callback_threadsafe(
-        hass.loop, async_turn_off, hass, entity_id).result()
+    hass.add_job(async_turn_off, hass, entity_id)
 
 
 @callback
@@ -115,7 +112,7 @@ def async_setup(hass, config):
             if not switch.should_poll:
                 continue
 
-            update_coro = hass.loop.create_task(
+            update_coro = hass.async_add_job(
                 switch.async_update_ha_state(True))
             if hasattr(switch, 'async_update'):
                 update_tasks.append(update_coro)
@@ -147,13 +144,13 @@ class SwitchDevice(ToggleEntity):
 
     # pylint: disable=no-self-use
     @property
-    def current_power_mwh(self):
-        """Return the current power usage in mWh."""
+    def current_power_w(self):
+        """Return the current power usage in W."""
         return None
 
     @property
-    def today_power_mw(self):
-        """Return the today total power usage in mW."""
+    def today_energy_kwh(self):
+        """Return the today total energy usage in kWh."""
         return None
 
     @property

@@ -20,7 +20,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import track_time_change
 from homeassistant.helpers.restore_state import async_get_last_state
 
-REQUIREMENTS = ['speedtest-cli==1.0.2']
+REQUIREMENTS = ['speedtest-cli==1.0.3']
 
 _LOGGER = logging.getLogger(__name__)
 _SPEEDTEST_REGEX = re.compile(r'Ping:\s(\d+\.\d+)\sms[\r\n]+'
@@ -33,6 +33,8 @@ CONF_HOUR = 'hour'
 CONF_DAY = 'day'
 CONF_SERVER_ID = 'server_id'
 CONF_MANUAL = 'manual'
+
+ICON = 'mdi:speedometer'
 
 SENSOR_TYPES = {
     'ping': ['Ping', 'ms'],
@@ -102,6 +104,11 @@ class SpeedtestSensor(Entity):
     def unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
         return self._unit_of_measurement
+
+    @property
+    def icon(self):
+        """Return icon."""
+        return ICON
 
     def update(self):
         """Get the latest data and update the states."""

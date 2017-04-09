@@ -59,7 +59,7 @@ MQTT_PAYLOAD = vol.Schema(vol.All(json.loads, vol.Schema({
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Setup MQTT Sensor."""
-    yield from async_add_devices([MQTTRoomSensor(
+    async_add_devices([MQTTRoomSensor(
         config.get(CONF_NAME),
         config.get(CONF_STATE_TOPIC),
         config.get(CONF_DEVICE_ID),
@@ -98,6 +98,7 @@ class MQTTRoomSensor(Entity):
 
             self.hass.async_add_job(self.async_update_ha_state())
 
+        @callback
         def message_received(topic, payload, qos):
             """A new MQTT message has been received."""
             try:

@@ -12,6 +12,7 @@ import aiohttp
 import async_timeout
 import voluptuous as vol
 
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.device_tracker import (
     DOMAIN, PLATFORM_SCHEMA, DeviceScanner)
@@ -29,6 +30,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 })
 
 CMD_LOGIN = 15
+CMD_LOGOUT = 16
 CMD_DEVICES = 123
 
 
@@ -62,7 +64,21 @@ class UPCDeviceScanner(DeviceScanner):
         }
 
         self.websession = async_create_clientsession(
-            hass, cookie_jar=aiohttp.CookieJar(unsafe=True, loop=hass.loop))
+            hass, auto_cleanup=False,
+            cookie_jar=aiohttp.CookieJar(unsafe=True, loop=hass.loop)
+        )
+
+        @asyncio.coroutine
+        def async_logout(event):
+            """Logout from upc connect box."""
+            try:
+                yield from self._async_ws_function(CMD_LOGOUT)
+                self.token = None
+            finally:
+                self.websession.detach()
+
+        hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STOP, async_logout)
 
     @asyncio.coroutine
     def async_scan_devices(self):
@@ -74,9 +90,15 @@ class UPCDeviceScanner(DeviceScanner):
                 return []
 
         raw = yield from self._async_ws_function(CMD_DEVICES)
-        xml_root = ET.fromstring(raw)
 
-        return [mac.text for mac in xml_root.iter('MACAddr')]
+        try:
+            xml_root = yield from self.hass.loop.run_in_executor(
+                None, ET.fromstring, raw)
+            return [mac.text for mac in xml_root.iter('MACAddr')]
+        except (ET.ParseError, TypeError):
+            _LOGGER.warning("Can't read device from %s", self.host)
+            self.token = None
+            return []
 
     @asyncio.coroutine
     def async_get_device_name(self, device):
@@ -89,12 +111,14 @@ class UPCDeviceScanner(DeviceScanner):
         response = None
         try:
             # get first token
+            self.websession.cookie_jar.clear()
             with async_timeout.timeout(10, loop=self.hass.loop):
                 response = yield from self.websession.get(
                     "http://{}/common_page/login.html".format(self.host)
                 )
 
-            self.token = self._async_get_token()
+            yield from response.text()
+            self.token = response.cookies['sessionToken'].value
 
             # login
             data = yield from self._async_ws_function(CMD_LOGIN, {
@@ -103,7 +127,7 @@ class UPCDeviceScanner(DeviceScanner):
             })
 
             # successfull?
-            if data.find("successful") != -1:
+            if data is not None:
                 return True
             return False
 
@@ -144,7 +168,7 @@ class UPCDeviceScanner(DeviceScanner):
 
                 # load data, store token for next request
                 raw = yield from response.text()
-                self.token = self._async_get_token()
+                self.token = response.cookies['sessionToken'].value
 
                 return raw
 
@@ -155,10 +179,3 @@ class UPCDeviceScanner(DeviceScanner):
         finally:
             if response is not None:
                 yield from response.release()
-
-    def _async_get_token(self):
-        """Extract token from cookies."""
-        cookie_manager = self.websession.cookie_jar.filter_cookies(
-            "http://{}".format(self.host))
-
-        return cookie_manager.get('sessionToken')

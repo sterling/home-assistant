@@ -79,6 +79,11 @@ def async_trigger(hass, config, action):
             call_action()
             return
 
+        # If only state attributes changed, ignore this event
+        if (from_s is not None and to_s is not None and
+                from_s.last_changed == to_s.last_changed):
+            return
+
         @callback
         def state_for_listener(now):
             """Fire on state changes after a delay and calls action."""

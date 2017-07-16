@@ -29,7 +29,7 @@ from homeassistant.const import (
     CONF_PASSWORD, CONF_PORT, CONF_PROTOCOL, CONF_PAYLOAD)
 from homeassistant.components.mqtt.server import HBMQTT_CONFIG_SCHEMA
 
-REQUIREMENTS = ['paho-mqtt==1.2.3']
+REQUIREMENTS = ['paho-mqtt==1.3.0']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -315,6 +315,10 @@ def async_setup(hass, config):
         client_cert = conf.get(CONF_CLIENT_CERT)
         tls_insecure = conf.get(CONF_TLS_INSECURE)
         protocol = conf[CONF_PROTOCOL]
+
+        # hbmqtt requires a client id to be set.
+        if client_id is None:
+            client_id = 'home-assistant'
     elif broker_config:
         # If no broker passed in, auto config to internal server
         broker, port, username, password, certificate, protocol = broker_config

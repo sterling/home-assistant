@@ -5,9 +5,9 @@ For more details about this component, please refer to the documentation at
 https://home-assistant.io/components/influxdb/
 """
 import logging
-
 import re
 
+import requests.exceptions
 import voluptuous as vol
 
 from homeassistant.const import (
@@ -18,7 +18,7 @@ from homeassistant.helpers import state as state_helper
 from homeassistant.helpers.entity_values import EntityValues
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['influxdb==3.0.0']
+REQUIREMENTS = ['influxdb==4.1.1']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,10 +123,12 @@ def setup(hass, config):
     try:
         influx = InfluxDBClient(**kwargs)
         influx.query("SHOW SERIES LIMIT 1;", database=conf[CONF_DB_NAME])
-    except exceptions.InfluxDBClientError as exc:
+    except (exceptions.InfluxDBClientError,
+            requests.exceptions.ConnectionError) as exc:
         _LOGGER.error("Database host is not accessible due to '%s', please "
-                      "check your entries in the configuration file and that "
-                      "the database exists and is READ/WRITE.", exc)
+                      "check your entries in the configuration file (host, "
+                      "port, etc.) and verify that the database exists and is "
+                      "READ/WRITE.", exc)
         return False
 
     def influx_event_listener(event):

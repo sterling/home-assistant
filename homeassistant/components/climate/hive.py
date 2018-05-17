@@ -38,7 +38,10 @@ class HiveClimateEntity(ClimateDevice):
         self.node_id = hivedevice["Hive_NodeID"]
         self.node_name = hivedevice["Hive_NodeName"]
         self.device_type = hivedevice["HA_DeviceType"]
+        if self.device_type == "Heating":
+            self.thermostat_node_id = hivedevice["Thermostat_NodeID"]
         self.session = hivesession
+        self.attributes = {}
         self.data_updatesource = '{}.{}'.format(self.device_type,
                                                 self.node_id)
 
@@ -70,6 +73,11 @@ class HiveClimateEntity(ClimateDevice):
         elif self.device_type == "HotWater":
             friendly_name = "Hot Water"
         return friendly_name
+
+    @property
+    def device_state_attributes(self):
+        """Show Device Attributes."""
+        return self.attributes
 
     @property
     def temperature_unit(self):
@@ -174,5 +182,10 @@ class HiveClimateEntity(ClimateDevice):
             entity.handle_update(self.data_updatesource)
 
     def update(self):
-        """Update all Node data frome Hive."""
+        """Update all Node data from Hive."""
+        node = self.node_id
+        if self.device_type == "Heating":
+            node = self.thermostat_node_id
+
         self.session.core.update_data(self.node_id)
+        self.attributes = self.session.attributes.state_attributes(node)

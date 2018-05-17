@@ -10,7 +10,8 @@ import logging
 import voluptuous as vol
 
 from homeassistant.components.weather import (
-    ATTR_FORECAST_TEMP, ATTR_FORECAST_TIME, PLATFORM_SCHEMA, WeatherEntity)
+    ATTR_FORECAST_CONDITION, ATTR_FORECAST_PRECIPITATION, ATTR_FORECAST_TEMP,
+    ATTR_FORECAST_TIME, PLATFORM_SCHEMA, WeatherEntity)
 from homeassistant.const import (
     CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME, STATE_UNKNOWN,
     TEMP_CELSIUS)
@@ -137,10 +138,18 @@ class OpenWeatherMapWeather(WeatherEntity):
     @property
     def forecast(self):
         """Return the forecast array."""
-        return [{
-            ATTR_FORECAST_TIME: entry.get_reference_time('iso'),
-            ATTR_FORECAST_TEMP: entry.get_temperature('celsius').get('temp')}
-                for entry in self.forecast_data.get_weathers()]
+        data = []
+        for entry in self.forecast_data.get_weathers():
+            data.append({
+                ATTR_FORECAST_TIME: entry.get_reference_time('unix') * 1000,
+                ATTR_FORECAST_TEMP:
+                    entry.get_temperature('celsius').get('temp'),
+                ATTR_FORECAST_PRECIPITATION: entry.get_rain().get('3h'),
+                ATTR_FORECAST_CONDITION:
+                    [k for k, v in CONDITION_CLASSES.items()
+                     if entry.get_weather_code() in v][0]
+            })
+        return data
 
     def update(self):
         """Get the latest data from OWM and updates the states."""
@@ -180,7 +189,7 @@ class WeatherData(object):
 
     @Throttle(MIN_TIME_BETWEEN_FORECAST_UPDATES)
     def update_forecast(self):
-        """Get the lastest forecast from OpenWeatherMap."""
+        """Get the latest forecast from OpenWeatherMap."""
         from pyowm.exceptions.api_call_error import APICallError
 
         try:

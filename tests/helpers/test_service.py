@@ -28,7 +28,7 @@ class TestServiceHelpers(unittest.TestCase):
         self.hass.stop()
 
     def test_template_service_call(self):
-        """Test service call with tempating."""
+        """Test service call with templating."""
         config = {
             'service_template': '{{ \'test_domain.test_service\' }}',
             'entity_id': 'hello.world',
@@ -68,6 +68,24 @@ class TestServiceHelpers(unittest.TestCase):
 
         self.assertEqual('goodbye', self.calls[0].data['hello'])
 
+    def test_bad_template(self):
+        """Test passing bad template."""
+        config = {
+            'service_template': '{{ var_service }}',
+            'entity_id': 'hello.world',
+            'data_template': {
+                'hello': '{{ states + unknown_var }}'
+            }
+        }
+
+        service.call_from_config(self.hass, config, variables={
+            'var_service': 'test_domain.test_service',
+            'var_data': 'goodbye',
+        })
+        self.hass.block_till_done()
+
+        self.assertEqual(len(self.calls), 0)
+
     def test_split_entity_string(self):
         """Test splitting of entity string."""
         service.call_from_config(self.hass, {
@@ -102,7 +120,7 @@ class TestServiceHelpers(unittest.TestCase):
 
     @patch('homeassistant.helpers.service._LOGGER.error')
     def test_fail_silently_if_no_service(self, mock_log):
-        """Test failling if service is missing."""
+        """Test failing if service is missing."""
         service.call_from_config(self.hass, None)
         self.assertEqual(1, mock_log.call_count)
 
@@ -120,7 +138,7 @@ class TestServiceHelpers(unittest.TestCase):
         self.hass.states.set('light.Ceiling', STATE_OFF)
         self.hass.states.set('light.Kitchen', STATE_OFF)
 
-        loader.get_component('group').Group.create_group(
+        loader.get_component(self.hass, 'group').Group.create_group(
             self.hass, 'test', ['light.Ceiling', 'light.Kitchen'])
 
         call = ha.ServiceCall('light', 'turn_on',
@@ -142,7 +160,7 @@ class TestServiceHelpers(unittest.TestCase):
 @asyncio.coroutine
 def test_async_get_all_descriptions(hass):
     """Test async_get_all_descriptions."""
-    group = loader.get_component('group')
+    group = loader.get_component(hass, 'group')
     group_config = {group.DOMAIN: {}}
     yield from async_setup_component(hass, group.DOMAIN, group_config)
     descriptions = yield from service.async_get_all_descriptions(hass)
@@ -152,7 +170,7 @@ def test_async_get_all_descriptions(hass):
     assert 'description' in descriptions['group']['reload']
     assert 'fields' in descriptions['group']['reload']
 
-    logger = loader.get_component('logger')
+    logger = loader.get_component(hass, 'logger')
     logger_config = {logger.DOMAIN: {}}
     yield from async_setup_component(hass, logger.DOMAIN, logger_config)
     descriptions = yield from service.async_get_all_descriptions(hass)

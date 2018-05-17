@@ -5,9 +5,8 @@ For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/cover.tahoma/
 """
 import logging
-from datetime import timedelta
 
-from homeassistant.components.cover import CoverDevice, ENTITY_ID_FORMAT
+from homeassistant.components.cover import CoverDevice, ATTR_POSITION
 from homeassistant.components.tahoma import (
     DOMAIN as TAHOMA_DOMAIN, TahomaDevice)
 
@@ -15,11 +14,9 @@ DEPENDENCIES = ['tahoma']
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=60)
-
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Set up Tahoma covers."""
+    """Set up the Tahoma covers."""
     controller = hass.data[TAHOMA_DOMAIN]['controller']
     devices = []
     for device in hass.data[TAHOMA_DOMAIN]['devices']['cover']:
@@ -29,11 +26,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
 class TahomaCover(TahomaDevice, CoverDevice):
     """Representation a Tahoma Cover."""
-
-    def __init__(self, tahoma_device, controller):
-        """Initialize the Tahoma device."""
-        super().__init__(tahoma_device, controller)
-        self.entity_id = ENTITY_ID_FORMAT.format(self.unique_id)
 
     def update(self):
         """Update method."""
@@ -46,22 +38,33 @@ class TahomaCover(TahomaDevice, CoverDevice):
 
         0 is closed, 100 is fully open.
         """
-        position = 100 - self.tahoma_device.active_states['core:ClosureState']
-        if position <= 5:
-            return 0
-        if position >= 95:
-            return 100
-        return position
+        try:
+            position = 100 - \
+                self.tahoma_device.active_states['core:ClosureState']
+            if position <= 5:
+                return 0
+            if position >= 95:
+                return 100
+            return position
+        except KeyError:
+            return None
 
-    def set_cover_position(self, position, **kwargs):
+    def set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
-        self.apply_action('setPosition', 100 - position)
+        self.apply_action('setPosition', 100 - kwargs.get(ATTR_POSITION))
 
     @property
     def is_closed(self):
         """Return if the cover is closed."""
         if self.current_cover_position is not None:
             return self.current_cover_position == 0
+
+    @property
+    def device_class(self):
+        """Return the class of the device."""
+        if self.tahoma_device.type == 'io:WindowOpenerVeluxIOComponent':
+            return 'window'
+        return None
 
     def open_cover(self, **kwargs):
         """Open the cover."""
@@ -76,12 +79,7 @@ class TahomaCover(TahomaDevice, CoverDevice):
         if self.tahoma_device.type == \
            'io:RollerShutterWithLowSpeedManagementIOComponent':
             self.apply_action('setPosition', 'secured')
+        elif self.tahoma_device.type == 'rts:BlindRTSComponent':
+            self.apply_action('my')
         else:
             self.apply_action('stopIdentify')
-
-    def device_class(self):
-        """Return the class of this device, from component DEVICE_CLASSES."""
-        if self.tahoma_device.type == 'io:WindowOpenerVeluxIOComponent':
-            return 'window'
-        else:
-            return None

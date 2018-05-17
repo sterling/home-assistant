@@ -18,7 +18,6 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
-from homeassistant.loader import get_component
 from homeassistant.util import slugify
 
 _LOGGER = logging.getLogger(__name__)
@@ -161,7 +160,7 @@ def async_setup(hass, config):
             face.store.pop(g_id)
 
             entity = entities.pop(g_id)
-            yield from entity.async_remove()
+            hass.states.async_remove(entity.entity_id)
         except HomeAssistantError as err:
             _LOGGER.error("Can't delete group '%s' with error: %s", g_id, err)
 
@@ -231,7 +230,7 @@ def async_setup(hass, config):
         p_id = face.store[g_id].get(service.data[ATTR_PERSON])
 
         camera_entity = service.data[ATTR_CAMERA_ENTITY]
-        camera = get_component('camera')
+        camera = hass.components.camera
 
         try:
             image = yield from camera.async_get_image(hass, camera_entity)
@@ -240,7 +239,7 @@ def async_setup(hass, config):
                 'post',
                 "persongroups/{0}/persons/{1}/persistedFaces".format(
                     g_id, p_id),
-                image,
+                image.content,
                 binary=True
             )
         except HomeAssistantError as err:
@@ -337,7 +336,7 @@ class MicrosoftFace(object):
     @asyncio.coroutine
     def call_api(self, method, function, data=None, binary=False,
                  params=None):
-        """Make a api call."""
+        """Make an api call."""
         headers = {"Ocp-Apim-Subscription-Key": self._api_key}
         url = self._server_url.format(function)
 
